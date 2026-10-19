@@ -1,0 +1,47 @@
+﻿{
+  "type": "object",
+  "required": ["claim_verdicts", "source_relations", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "claim_verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_id", "status", "supporting_source_ids", "refuting_source_ids", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {"type": "integer"},
+          "status": {"type": "string", "enum": ["CONFIRMED", "REFUTED", "CONFLICTING", "UNCONFIRMED", "INSUFFICIENT_DATA"]},
+          "supporting_source_ids": {"type": "array", "items": {"type": "integer"}},
+          "refuting_source_ids": {"type": "array", "items": {"type": "integer"}},
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["source_id", "quote"],
+              "additionalProperties": false,
+              "properties": {
+                "source_id": {"type": "integer"},
+                "quote": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "source_relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_id", "is_primary"],
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {"type": "integer"},
+          "refers_to_source_id": {"type": ["integer", "null"]},
+          "is_primary": {"type": "boolean"}
+        }
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}

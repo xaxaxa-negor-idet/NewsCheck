@@ -1,0 +1,41 @@
+﻿{
+  "type": "object",
+  "required": ["event", "claims", "entities", "search_queries", "tags", "is_news", "ambiguity"],
+  "additionalProperties": false,
+  "properties": {
+    "event": {
+      "type": "object",
+      "required": ["title", "summary", "location", "event_date", "participants", "organizations", "roads_or_objects", "event_type"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "summary": {"type": "string"},
+        "location": {"type": ["string", "null"]},
+        "event_date": {"type": ["string", "null"]},
+        "participants": {"type": "array", "items": {"type": "string"}},
+        "organizations": {"type": "array", "items": {"type": "string"}},
+        "roads_or_objects": {"type": "array", "items": {"type": "string"}},
+        "event_type": {"type": ["string", "null"]}
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["text", "is_key"],
+        "additionalProperties": false,
+        "properties": {
+          "text": {"type": "string", "minLength": 1},
+          "is_key": {"type": "boolean"}
+        }
+      }
+    },
+    "entities": {"type": "array", "items": {"type": "string"}},
+    "search_queries": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string", "minLength": 1}},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "is_news": {"type": "boolean"},
+    "ambiguity": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]}
+  }
+}
