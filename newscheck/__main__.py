@@ -1,16 +1,19 @@
-﻿# NewsCheck MVP launcher
-import argparse
+﻿import argparse
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+
+from database.migrate import apply_migrations
 
 def main():
     parser = argparse.ArgumentParser(prog="newscheck")
     parser.add_argument("command", choices=["migrate", "check", "test"])
     args = parser.parse_args()
     if args.command == "migrate":
-        print("migrate: pending stage 1")
+        result = apply_migrations()
+        print("migrated:", ", ".join(result) if result else "already up to date")
     elif args.command == "check":
         print("config loaded, dry_run=True, destinations: console")
     elif args.command == "test":
