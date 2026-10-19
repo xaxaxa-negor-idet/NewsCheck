@@ -1,0 +1,3 @@
+{"service": "t.me_public_web", "channel": "durov", "url": "https://t.me/s/durov", "ok": true, "http_status": 200, "entries": 353, "latency_ms": 1055, "error": null, "checked_at": "2026-10-20T01:50:30+0300"}
+{"service": "t.me_public_web", "channel": "telegram", "url": "https://t.me/s/telegram", "ok": true, "http_status": 200, "entries": 343, "latency_ms": 1065, "error": null, "checked_at": "2026-10-20T01:50:31+0300"}
+{"service": "t.me_public_web", "channel": "bbbreaking", "url": "https://t.me/s/bbbreaking", "ok": true, "http_status": 200, "entries": 314, "latency_ms": 1052, "error": null, "checked_at": "2026-10-20T01:50:32+0300"}
