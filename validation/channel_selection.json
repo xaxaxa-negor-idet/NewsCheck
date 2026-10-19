@@ -1,0 +1,12 @@
+﻿{
+  "channels": [
+    {"username": "topor", "label": "ТОПОР - Горячие новости", "category": "right"},
+    {"username": "zhestvideo18", "label": "Жесть видео 18+", "category": "incident"},
+    {"username": "readovka", "label": "Важное в Смоленске", "category": "right"},
+    {"username": "nexta_live", "label": "NEXTA Live", "category": "left"},
+    {"username": "rybar", "label": "Рыбарь", "category": "right"},
+    {"username": "breakingmash", "label": "Mash", "category": "incident"},
+    {"username": "shot_shot", "label": "SHOT", "category": "incident"}
+  ],
+  "notes": "Стартовый набор: 7 активных каналов. Категории: left/right/incident. Задание владельца: Топор+ его каналы, Жесть видео 18+, 5-7 левых/правых, итого 10-12. Раннее сравнение освещения (СПЕЦ 14.4) требует разных категорий. Топор2/stopor/topor_live не существуют или неактивны. Поиск каналов Топора может быть уточнен владельцем позже."
+}
