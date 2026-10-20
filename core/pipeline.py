@@ -1,4 +1,4 @@
-﻿"""Pipeline: message → analysis → search → verification → status → publication."""
+"""Pipeline: message → analysis → search → verification → status → publication."""
 from __future__ import annotations
 
 import json
@@ -95,12 +95,30 @@ class NewsCheckPipeline:
 
             verification = verifier(claims_for_verifier, search_results)
 
-            # Stage 8: Status calculation (simplified)
+            # Update claim statuses from verdicts
             verdicts = verification.get("claim_verdicts", [])
+            for verdict in verdicts:
+                conn.execute(
+                    "UPDATE claims SET status=? WHERE id=?",
+                    (verdict["status"], verdict["claim_id"]),
+                )
+
+            # Stage 8: Status calculation
             if verdicts:
-                status_result = calculator(verdicts)
+                claim_rows = conn.execute(
+                    "SELECT c.id, c.status, c.is_key FROM claims c WHERE c.event_id=?",
+                    (event_id,),
+                ).fetchall()
+                verdict_map = {v["claim_id"]: v for v in verdicts}
+                enriched = []
+                for row in claim_rows:
+                    enriched.append({
+                        "claim_id": row["id"],
+                        "status": verdict_map.get(row["id"], {}).get("status", row["status"]),
+                        "is_key": bool(row["is_key"]),
+                    })
+                status_result = calculator(enriched)
             else:
-                from verification.status_calculator import EventStatus
                 status_result = {"status": "НЕ ПОДТВЕРЖДЕНО", "reason": "нет вердиктов"}
 
             conn.execute(
