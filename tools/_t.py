@@ -4,48 +4,31 @@ test = """from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from publication.formatter import ClaimLine, EventPost, format_post
+from sources.telegram_web import parse_public_page
 
 
-def test_template_structure():
-    post = EventPost(
-        event_id=1,
-        original_text="Original news text",
-        status="\u041e\u041f\u0420\u041e\u0412\u0415\u0420\u0413\u041d\u0423\u0422\u041e",
-        reason="arg text",
-        claims=[],
-        source_links=["https://example.com/a"],
-        source_channel="topor",
-        original_url="https://t.me/topor/53123",
-        tags=[],
+def test_inline_links_preserved():
+    html = (
+        '<div class="tgme_widget_message_wrap">'
+        '<div class="tgme_widget_message" data-post="ch/1">'
+        '<div class="tgme_widget_message_text js-message_text">Bet here <a href="https://example.com/promo">https://example.com/promo</a></div>'
+        '<time datetime="2026-10-20T12:00:00+00:00"></time>'
+        '</div></div>'
     )
-    text = format_post(post)
-    assert "─── NewsCheck ───" in text
-    assert "\u041c\u0418\u0424" in text
-    assert "\u0410\u0440\u0433\u0443\u043c\u0435\u043d\u0442:" in text
-    assert "\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f:" in text
-    assert "\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b: @topor" in text
-    assert "\u041f\u043e\u0441\u0442:" in text
-    assert "ID: #1" in text
-    assert '<a href=' in text
+    msgs = parse_public_page(html, "ch")
+    assert len(msgs) == 1
+    assert "https://example.com/promo" in msgs[0].text
 
 
-def test_template_confirmed():
-    post = EventPost(
-        event_id=1,
-        original_text="Text",
-        status="\u041f\u041e\u0414\u0422\u0412\u0415\u0420\u0416\u0414\u0415\u041d\u041e",
-        reason="",
-        claims=[],
-        source_links=["https://a.com", "https://b.com"],
-        source_channel="chan",
-        original_url="https://t.me/chan/9",
-        tags=[],
+def test_no_link_no_change():
+    html = (
+        '<div class="tgme_widget_message_wrap">'
+        '<div class="tgme_widget_message" data-post="ch/2">'
+        '<div class="tgme_widget_message_text js-message_text">Plain text only</div>'
+        '</div></div>'
     )
-    text = format_post(post)
-    assert "\u041d\u0415 \u041c\u0418\u0424" in text
-    assert "\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b: @chan" in text
-    assert "\u041f\u043e\u0441\u0442:" in text
+    msgs = parse_public_page(html, "ch")
+    assert msgs[0].text == "Plain text only"
 """
-Path("tests/test_formatter.py").write_bytes(test.encode("utf-8"))
+Path("tests/test_inline_links.py").write_bytes(test.encode("utf-8"))
 print('ok')

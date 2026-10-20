@@ -37,6 +37,10 @@ def _text_to_plain(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+def _extract_links(html: str) -> list[str]:
+    return re.findall(r'<a[^>]+href="([^"]+)"', html)
+
+
 def parse_public_page(html: str, channel: str) -> list[SourceMessage]:
     messages = []
     blocks = re.split(r'(?=<div class="tgme_widget_message_wrap)', html)
@@ -51,7 +55,13 @@ def parse_public_page(html: str, channel: str) -> list[SourceMessage]:
         )
         text = _text_to_plain(text_match.group(1)) if text_match else ""
 
-        media = re.findall(r"background-image:url\('([^']+)'\)", block)
+        # Links inside message text must survive to the final post
+        inline_links = _extract_links(text_match.group(1)) if text_match else []
+        text = _merge_links_into_text(text, inline_links)
+
+        # Inline text links are part of content, not media
+        media = [u for u in _extract_links(block) if "cdn" in u]
+        media += re.findall(r"background-image:url\('([^']+)'\)", block)
 
         # Extract <video> sources (mp4 links) ? public preview videos
         video_matches = re.findall(r'<video[^>]+src="([^"]+\.mp4[^"]*)"', block)
@@ -106,3 +116,11 @@ def list_messages(
     if since is not None:
         messages = [message for message in messages if message.published_at and message.published_at > since]
     return PollResult(kind="OK" if messages else "EMPTY", messages=messages)
+
+
+def _merge_links_into_text(text: str, links: list[str]) -> str:
+    """Keep links that were words in the original post: append if not already present."""
+    for link in links:
+        if link and link not in text:
+            text = text.rstrip() + "\n" + link
+    return text
