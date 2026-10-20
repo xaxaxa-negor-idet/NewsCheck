@@ -23,7 +23,7 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
     conn.row_factory = sqlite3.Row
 
     events = conn.execute(
-        """SELECT e.id, e.title, e.summary, e.current_status, m.original_text, m.source_url, c.username
+        """SELECT e.id, e.title, e.summary, e.current_status, m.original_text, m.source_url, c.username, m.media
            FROM events e
            JOIN event_messages em ON em.event_id = e.id
            JOIN messages m ON m.id = em.message_id
@@ -52,6 +52,18 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         ).fetchall()
         source_links = [row["url"] for row in event_sources]
 
+        # Extract first real photo (skip emojis)
+        import json as json_mod
+        media_url = None
+        try:
+            media_list = json_mod.loads(event["media"]) if event["media"] else []
+            for m in media_list:
+                if "cdn" in str(m) or m.endswith((".jpg", ".jpeg", ".png")):
+                    media_url = str(m)
+                    break
+        except (json_mod.JSONDecodeError, TypeError):
+            pass
+
         post = EventPost(
             event_id=event["id"],
             original_text=event["original_text"] or "",
@@ -67,11 +79,16 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
             tags=[],
         )
         rendered = format_post(post)
+        if media_url:
+            from publication.telegram import RenderedPostWithMedia
+            rendered = RenderedPostWithMedia(
+                event_id=post.event_id, text=rendered, media_url=media_url
+            )
 
         if token and destination_channel:
             try:
                 destination = TelegramChannelDestination(token, destination_channel)
-                result = destination.publish(type("R", (), {"event_id": event["id"], "text": rendered})())
+                result = destination.publish(rendered)
                 conn.execute(
                     "INSERT INTO published_messages (event_id, destination, telegram_message_id) VALUES (?, ?, ?)",
                     (event["id"], "telegram", result.external_id),

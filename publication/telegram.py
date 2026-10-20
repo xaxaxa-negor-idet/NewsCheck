@@ -1,11 +1,18 @@
-﻿"""Telegram Bot API destination: SPEC 11.4."""
+﻿# -*- coding: utf-8 -*-
+"""Telegram Bot API destination: SPEC 11.4 — with media support and fallback."""
 from __future__ import annotations
-
-from dataclasses import dataclass
 
 import requests
 
 from publication.console import PublicationResult, RenderedPost
+
+
+class RenderedPostWithMedia(RenderedPost):
+    media_url: str | None = None
+
+    def __init__(self, event_id: int, text: str, media_url: str | None = None):
+        super().__init__(event_id=event_id, text=text)
+        object.__setattr__(self, "media_url", media_url)
 
 
 class TelegramChannelDestination:
@@ -30,6 +37,18 @@ class TelegramChannelDestination:
         return data["result"]
 
     def publish(self, rendered: RenderedPost) -> PublicationResult:
+        media_url = getattr(rendered, "media_url", None)
+        if media_url:
+            try:
+                caption = rendered.text[:1024]
+                result = self._post(
+                    "sendPhoto",
+                    {"chat_id": self.channel_id, "photo": media_url, "caption": caption, "parse_mode": "HTML"},
+                )
+                return PublicationResult("telegram", str(result["message_id"]), rendered.text)
+            except Exception:
+                # Media unavailable — fall through to text-only
+                pass
         result = self._post(
             "sendMessage",
             {"chat_id": self.channel_id, "text": rendered.text, "parse_mode": "HTML"},

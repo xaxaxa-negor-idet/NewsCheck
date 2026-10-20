@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-"""Publication formatter v3: compact theses + numbered source links."""
+"""Publication formatter v4: no theses in output, numbered sources only."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,14 +51,10 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
         f"{icon} {escape(post.status)}",
     ]
 
-    if post.claims:
-        statuses = {claim.status for claim in post.claims}
-        if len(statuses) == 1 and post.status in ("ПОДТВЕРЖДЕНО", "ОПРОВЕРГНУТО"):
-            lines.append(f"Тезисы: {escape(post.status)}")
-        else:
-            lines.append("Тезисы:")
-            for claim in post.claims:
-                lines.append(f"• {escape(claim.text)}: {escape(claim.status)}")
+    # NO theses listed — only verdict summary
+    # Reasons shown only for non-obvious statuses
+    if post.status in ("CONFLICTING", "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ", "INSUFFICIENT_DATA") and post.reason:
+        lines.append(escape(post.reason))
 
     if post.source_links:
         lines.append("Источники:")
