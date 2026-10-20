@@ -1,0 +1,40 @@
+﻿# -*- coding: utf-8 -*-
+{% extends "base.html" %}
+{% block title %}Событие #{{ e.id }} — NewsCheck{% endblock %}
+{% block content %}
+<h1>Событие #{{ e.id }}</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">{{ e.title }}</h5>
+    <p class="mb-1"><strong>Статус:</strong> {{ e.current_status }}</p>
+    <p class="mb-1"><strong>Причина:</strong> {{ e.status_reason or "—" }}</p>
+    <p class="mb-1"><strong>Канал:</strong> @{{ e.channel_username }}</p>
+    <p class="mb-1"><strong>Пост:</strong> <a href="{{ e.source_url }}">{{ e.source_url }}</a></p>
+    {% if e.telegram_message_id %}
+    <p class="mb-1"><strong>Telegram msg:</strong> {{ e.telegram_message_id }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<h2>Текст поста</h2>
+<form method="post">
+  <input type="hidden" name="action" value="edit">
+  <textarea name="text" class="form-control" rows="8">{{ e.original_text }}</textarea>
+  <button type="submit" class="btn btn-primary mt-2">Сохранить и обновить в Telegram</button>
+</form>
+
+<h2 class="mt-4">Подтверждения</h2>
+<ul>
+  {% for s in e.sources %}
+  <li><a href="{{ s.url }}">{{ s.domain }}: {{ s.title }}</a></li>
+  {% endfor %}
+</ul>
+
+<form method="post" class="mt-4" onsubmit="return confirm('Удалить пост из Telegram?')">
+  <input type="hidden" name="action" value="delete">
+  <button type="submit" class="btn btn-danger">Удалить пост из Telegram</button>
+</form>
+
+<a href="{{ url_for('events') }}" class="btn btn-secondary mt-3">Назад к событиям</a>
+{% endblock %}

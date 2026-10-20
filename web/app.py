@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Web panel: SPEC 14 — admin interface with auth."""
+"""Web panel: channels management, event edit/delete with Telegram sync."""
 from __future__ import annotations
 
 import functools
@@ -7,15 +7,26 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
 
-from web.queries import get_dashboard_counts, get_events, get_messages
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
+
+from web.queries import (
+    add_channel,
+    delete_channel,
+    get_channels,
+    get_dashboard_counts,
+    get_event_detail,
+    get_events,
+    get_messages,
+    telegram_delete_message,
+    telegram_edit_message,
+    toggle_channel,
+    update_event_text,
+)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("WEB_SECRET_KEY", "dev-secret-change-me")
@@ -57,6 +68,29 @@ def dashboard():
     return render_template("dashboard.html", counts=counts)
 
 
+@app.route("/channels", methods=["GET", "POST"])
+@login_required
+def channels():
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "add":
+            name = request.form.get("name", "")
+            username = request.form.get("username", "")
+            if add_channel(name, username):
+                flash(f"Канал @{username.lstrip('@')} добавлен", "success")
+            else:
+                flash("Не удалось добавить канал", "error")
+        elif action == "toggle":
+            toggle_channel(int(request.form["channel_id"]))
+            flash("Статус канала изменён", "success")
+        elif action == "delete":
+            delete_channel(int(request.form["channel_id"]))
+            flash("Канал удалён", "success")
+        return redirect(url_for("channels"))
+    items = get_channels()
+    return render_template("channels.html", channels=items)
+
+
 @app.route("/events")
 @login_required
 def events():
@@ -64,18 +98,43 @@ def events():
     return render_template("events.html", events=items)
 
 
+@app.route("/events/<int:event_id>", methods=["GET", "POST"])
+@login_required
+def event_detail(event_id):
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "edit":
+            new_text = request.form.get("text", "")
+            update_event_text(event_id, new_text)
+            if telegram_edit_message(event_id, new_text):
+                flash("Сообщение обновлено и в Telegram", "success")
+            else:
+                flash("Текст сохранён, но Telegram не отредактирован (пост был с медиа или уже удалён)", "warning")
+        elif action == "delete":
+            if telegram_delete_message(event_id):
+                flash("Пост удалён из Telegram", "success")
+            else:
+                flash("Не удалось удалить пост", "error")
+        return redirect(url_for("event_detail", event_id=event_id))
+    detail = get_event_detail(event_id)
+    if not detail:
+        flash("Событие не найдено", "error")
+        return redirect(url_for("events"))
+    return render_template("event_detail.html", e=detail)
+
+
 @app.route("/messages")
 @login_required
 def messages():
     status = request.args.get("status")
     items = get_messages(limit=100, status=status)
-    return render_template("messages.html", messages=items, current_filter=status)
+    return render_template("messages.html", messages=items)
+
+
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=5000, debug=False)
 
 
 @app.route("/health")
 def health():
     return {"status": "ok"}
-
-
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=False)

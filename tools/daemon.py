@@ -97,18 +97,28 @@ def poll_channels(db_path: str) -> int:
     conn.close()
 
     total_new = 0
+    import time as _time
+    session = None
     for channel in channels:
-        try:
-            result = list_messages(channel["username"])
-            if result.kind == "UNAVAILABLE":
-                print(f"  @{channel['username']}: UNAVAILABLE ({result.reason})")
-                continue
-            outcome = ingest_poll_result(result, channel["id"], db_path)
-            total_new += outcome.inserted
-            if outcome.inserted or outcome.updated:
-                print(f"  @{channel['username']}: +{outcome.inserted} new, {outcome.updated} edited")
-        except Exception as exc:
-            print(f"  @{channel['username']}: ERROR {type(exc).__name__}: {exc}")
+        ok = False
+        for attempt in range(3):
+            try:
+                result = list_messages(channel["username"])
+                if result.kind == "UNAVAILABLE":
+                    print(f"  @{channel['username']}: UNAVAILABLE attempt {attempt+1}")
+                    _time.sleep(3 * (attempt + 1))
+                    continue
+                outcome = ingest_poll_result(result, channel["id"], db_path)
+                total_new += outcome.inserted
+                if outcome.inserted or outcome.updated:
+                    print(f"  @{channel['username']}: +{outcome.inserted} new, {outcome.updated} edited")
+                ok = True
+                break
+            except Exception as exc:
+                print(f"  @{channel['username']}: attempt {attempt+1} failed: {type(exc).__name__}")
+                _time.sleep(3 * (attempt + 1))
+        if not ok:
+            print(f"  @{channel['username']}: FAILED after retries")
     return total_new
 
 
@@ -199,7 +209,12 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
             new_count = poll_channels(db)
             print(f"  collected: {new_count} new messages")
 
-            if new_count > 0 or cycle == 1:
+            conn = sqlite3.connect(db)
+            pending = conn.execute(
+                "SELECT COUNT(*) FROM messages WHERE processing_status='NEW' AND length(original_text) > 40"
+            ).fetchone()[0]
+            conn.close()
+            if new_count > 0 or pending > 0 or cycle == 1:
                 processed = process_new_messages(db, pipeline, fns, max_per_cycle)
                 print(f"  processed: {processed}")
 
@@ -216,7 +231,7 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
         except Exception as exc:
             print(f"  cycle error: {type(exc).__name__}: {exc}")
 
-        time.sleep(interval)
+        time.sleep(min(interval, 30))
 
 
 def main():
