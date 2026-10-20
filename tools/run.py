@@ -112,7 +112,7 @@ def run(poll: bool = False, process: int = 0, db_path: str | None = None):
         destination = ConsoleDestination()
 
         messages = conn.execute(
-            "SELECT id FROM messages WHERE processing_status='NEW' AND length(original_text) > 80 ORDER BY id LIMIT ?",
+            "SELECT id FROM messages WHERE processing_status='NEW' AND length(original_text) > 80 ORDER BY published_at DESC, id LIMIT ?",
             (process,),
         ).fetchall()
         print(f"Processing {len(messages)} messages...")
