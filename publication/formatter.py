@@ -1,5 +1,16 @@
 ﻿# -*- coding: utf-8 -*-
-"""Publication formatter v6: HTML hyperlinks — short labels, hidden URLs."""
+"""Publication formatter v7 — strict template.
+
+Template per user spec:
+  1. photo/video from original post  (sent via sendPhoto/sendVideo, caption = rest)
+  2. original text
+  3. ─── NewsCheck ───
+  4. МИФ / НЕ МИФ line
+  5. argument why (if myth / partial)
+  6. Подтверждения: [links]
+  7. Оригинал: @username
+  8. Пост: [exact post url]
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,50 +54,72 @@ STATUS_ICONS = {
 
 
 def _link(label: str, url: str) -> str:
-    """HTML hyperlink: short clickable label, URL hidden."""
     return f'<a href="{escape(url, quote=True)}">{escape(label)}</a>'
 
 
 def _domain_label(url: str) -> str:
-    """Extract short readable domain from URL for label."""
     try:
         from urllib.parse import urlsplit
-        host = urlsplit(url).netloc.replace("www.", "")
-        if not host:
-            return url[:30]
-        # Telegram post: @channel
-        if "t.me" in host:
-            parts = url.rstrip("/").split("/")
-            if len(parts) >= 2:
-                return f"@{parts[-2]}"
-        return host
+        parts = urlsplit(url)
+        host = parts.netloc.replace("www.", "")
+        if "t.me" in host and parts.path:
+            seg = [p for p in parts.path.split("/") if p]
+            if len(seg) >= 2:
+                return f"@{seg[0]}"
+        return host or url[:30]
     except Exception:
         return url[:30]
 
 
+def _verdict_line(status: str) -> str:
+    """Map event status to myth/not-myth verdict."""
+    s = status.upper()
+    if "ОПРОВЕРГНУТО" in s:
+        return "МИФ"
+    if "ПОДТВЕРЖ" in s and "ЧАСТИЧНО" not in s:
+        return "НЕ МИФ"
+    if "ЧАСТИЧНО" in s:
+        return "ЧАСТИЧНЫЙ МИФ"
+    if "CONFLICT" in s or "ПРОТИВОРЕЧ" in s:
+        return "ПРОТИВОРЕЧИВО"
+    if "ТРЕБУЕТ" in s or "INSUFFICIENT" in s:
+        return "ТРЕБУЕТ ПРОВЕРКИ"
+    return "НЕ ПОДТВЕРЖДЕНО"
+
+
 def format_post(post: EventPost, updated_at: str | None = None) -> str:
     icon = STATUS_ICONS.get(post.status, "❔")
+    verdict = _verdict_line(post.status)
+
     lines = [
         escape(post.original_text),
         "",
         "─── NewsCheck ───",
-        f"{icon} {escape(post.status)}",
+        f"{icon} {verdict}",
     ]
 
-    if post.status in ("CONFLICTING", "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ", "INSUFFICIENT_DATA") and post.reason:
-        lines.append(escape(post.reason))
+    # Argument: always show for non-confirmed; for confirmed show brief confirmation
+    if verdict == "НЕ МИФ":
+        lines.append(f"✅ Подтверждено независимыми источниками ({len(post.source_links)})")
+    elif post.reason:
+        lines.append(f"Аргумент: {escape(post.reason)}")
+    else:
+        lines.append("Аргумент: недостаточно подтверждений по ключевым утверждениям")
 
     if post.source_links:
+        lines.append("")
         lines.append("Подтверждения:")
         for idx, link in enumerate(post.source_links[:5], 1):
-            domain = _domain_label(link)
-            lines.append(_link(f"Подтверждение {idx} · {domain}", link))
+            lines.append(_link(f"Подтверждение {idx} · {_domain_label(link)}", link))
 
-    lines.append(f"Оригинал: {_link('@' + escape(post.source_channel), post.original_url or 'https://t.me/' + post.source_channel)}")
+    lines.append("")
+    lines.append(f"Оригинал: @{escape(post.source_channel)}")
+
+    post_url = post.original_url or f"https://t.me/{post.source_channel}"
+    lines.append(f"Пост: {_link(post_url, post_url)}")
 
     if post.tags:
-        lines.append(" ".join(f"#{tag.lstrip('#')}" for tag in post.tags[:5]))
+        lines.append("")
+        lines.append(" ".join(f"#{t.lstrip('#')}" for t in post.tags[:5]))
 
-    if updated_at:
-        lines.append(f"Обновлено {escape(updated_at)}")
     return "\n".join(lines)

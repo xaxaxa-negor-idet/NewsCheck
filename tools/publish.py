@@ -23,7 +23,7 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
     conn.row_factory = sqlite3.Row
 
     events = conn.execute(
-        """SELECT e.id, e.title, e.summary, e.current_status, m.original_text, m.source_url, c.username, m.media
+        """SELECT e.id, e.title, e.summary, e.current_status, e.status_reason, m.original_text, m.source_url, c.username, m.media
            FROM events e
            JOIN event_messages em ON em.event_id = e.id
            JOIN messages m ON m.id = em.message_id

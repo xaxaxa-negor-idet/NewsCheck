@@ -195,8 +195,8 @@ class NewsCheckPipeline:
                 status_result = {"status": "НЕ ПОДТВЕРЖДЕНО", "reason": "нет вердиктов"}
 
             conn.execute(
-                "UPDATE events SET current_status=?, updated_at=? WHERE id=?",
-                (status_result["status"], _now(), event_id),
+                "UPDATE events SET current_status=?, status_reason=?, updated_at=? WHERE id=?",
+                (status_result["status"], status_result.get("reason", ""), _now(), event_id),
             )
             conn.execute("UPDATE messages SET processing_status='PROCESSED' WHERE id=?", (message_id,))
             conn.commit()
