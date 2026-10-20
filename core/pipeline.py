@@ -1,4 +1,4 @@
-﻿"""Pipeline: message → analysis → search → verification → status → publication."""
+"""Pipeline: message → analysis → search → verification → status → publication."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+
+from matching.cross_channel import find_cross_channel_matches
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -42,13 +44,14 @@ class NewsCheckPipeline:
         conn = self._conn()
         try:
             message = conn.execute(
-                """SELECT m.id, m.original_text, c.username
+                """SELECT m.id, m.original_text, c.username, m.channel_id
                    FROM messages m JOIN channels c ON c.id = m.channel_id
                    WHERE m.id = ?""",
                 (message_id,),
             ).fetchone()
             if message is None:
                 raise ValueError(f"message not found: {message_id}")
+            message_channel_id = message["channel_id"]
 
             # Stage 4: LLM analysis
             analysis = analyzer(message["original_text"])
@@ -81,11 +84,44 @@ class NewsCheckPipeline:
 
             conn.execute("UPDATE messages SET processing_status='ANALYZED' WHERE id=?", (message_id,))
 
-            # Stage 6: Search
+            # Stage 6a: Cross-channel matches (other Telegram channels)
+            cross_matches = find_cross_channel_matches(
+                message_id, message_channel_id, event_data["title"], analysis.get("entities", [])
+            )
+            cross_sources = []
+            for match in cross_matches:
+                cross_sources.append({
+                    "id": None,  # assign later
+                    "title": f"@{match.channel_username}: {match.message_text[:100]}",
+                    "text": match.message_text,
+                    "domain": f"t.me/{match.channel_username}",
+                    "url": match.source_url,
+                })
+
+            # Stage 6b: External news search
             search_results = []
-            for query in analysis["search_queries"][:3]:
+            for query in analysis["search_queries"][:2]:
                 results = searcher(query)[:3]
                 search_results.extend(results)
+
+            # Merge sources: external first (higher trust), then cross-channel
+            all_sources = search_results + cross_sources
+            for idx, source in enumerate(all_sources, 1):
+                source["id"] = idx
+
+            # Persist sources to database
+            source_ids_map = []
+            for source in all_sources:
+                cursor = conn.execute(
+                    "INSERT INTO sources (canonical_url, url, title, source_name, domain, content) VALUES (?, ?, ?, ?, ?, ?)",
+                    (source["url"], source["url"], source["title"], source["domain"], source["domain"], source["text"]),
+                )
+                source_db_id = int(cursor.lastrowid)
+                source_ids_map.append(source_db_id)
+                conn.execute(
+                    "INSERT INTO event_sources (event_id, source_id) VALUES (?, ?)",
+                    (event_id, source_db_id),
+                )
 
             # Stage 7: Verification
             claims_for_verifier = [
@@ -93,7 +129,7 @@ class NewsCheckPipeline:
                 for cid, text in zip(claim_ids, [c["text"] for c in analysis["claims"]])
             ]
 
-            verification = verifier(claims_for_verifier, search_results)
+            verification = verifier(claims_for_verifier, all_sources)
 
             # Update claim statuses from verdicts
             verdicts = verification.get("claim_verdicts", [])

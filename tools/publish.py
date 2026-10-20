@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Publish verified events to Telegram (dry-run if unavailable)."""
 from __future__ import annotations
 
@@ -44,6 +44,14 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
             (event["id"],),
         ).fetchall()
 
+        event_sources = conn.execute(
+            "SELECT s.url, s.domain, s.title FROM sources s "
+            "JOIN event_sources es ON es.source_id = s.id "
+            "WHERE es.event_id = ? ORDER BY s.id LIMIT 5",
+            (event["id"],),
+        ).fetchall()
+        source_links = [row["url"] for row in event_sources]
+
         post = EventPost(
             event_id=event["id"],
             original_text=event["original_text"] or "",
@@ -53,7 +61,7 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
                 ClaimLine(text=c["claim_text"], status=c["status"])
                 for c in claims
             ],
-            source_links=[],
+            source_links=source_links,
             source_channel=event["username"] or "",
             original_url=event["source_url"] or "",
             tags=[],
@@ -84,4 +92,5 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
 if __name__ == "__main__":
     for item in publish_pending_events():
         print(item)
+
 
