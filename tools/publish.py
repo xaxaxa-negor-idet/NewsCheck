@@ -58,7 +58,9 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         try:
             media_list = json_mod.loads(event["media"]) if event["media"] else []
             for m in media_list:
-                if "cdn" in str(m) or m.endswith((".jpg", ".jpeg", ".png")):
+                if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
+                    if m.startswith("//"):
+                        m = "https:" + m
                     media_url = str(m)
                     break
         except (json_mod.JSONDecodeError, TypeError):

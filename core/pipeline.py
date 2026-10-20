@@ -53,6 +53,16 @@ class NewsCheckPipeline:
                 raise ValueError(f"message not found: {message_id}")
             message_channel_id = message["channel_id"]
 
+            # Skip stale messages (older than 48 hours)
+            age = conn.execute(
+                "SELECT (julianday('now') - julianday(m.published_at)) * 24 FROM messages m WHERE m.id = ?",
+                (message_id,),
+            ).fetchone()
+            if age and age[0] is not None and age[0] > 48:
+                conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message_id,))
+                conn.commit()
+                return PipelineOutcome(message_id, True, None, "IGNORED", "stale message >48h")
+
             # Stage 4: LLM analysis
             analysis = analyzer(message["original_text"])
             if not analysis["is_news"]:

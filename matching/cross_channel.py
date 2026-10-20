@@ -1,6 +1,8 @@
-﻿"""Cross-channel source search: find the same event in other monitored channels."""
+﻿# -*- coding: utf-8 -*-
+"""Cross-channel source search: find the same event in other monitored channels."""
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,30 +38,49 @@ def find_cross_channel_matches(
     db_path: str | None = None,
     limit: int = 10,
 ) -> list[ChannelMatch]:
-    """Find similar messages in other channels (not the source channel)."""
     conn = _connect(db_path)
     try:
+        # Extract strong signals: numbers, capitalized names, unique nouns
         keywords = _extract_keywords(title)
-        if not keywords:
+        numbers = _extract_numbers(title)
+        proper_nouns = _extract_proper_nouns(title)
+
+        if not keywords and not numbers:
             return []
 
-        placeholders = ",".join("?" * len(keywords))
         rows = conn.execute(
-            f"""SELECT m.id, m.original_text, m.source_url, m.published_at,
-                       c.id AS channel_id, c.username, c.name
-                FROM messages m
-                JOIN channels c ON c.id = m.channel_id
-                WHERE m.channel_id != ? AND m.id != ?
-                  AND m.processing_status != 'IGNORED'
-                  AND length(m.original_text) > 40
-                ORDER BY m.id DESC LIMIT 500""",
+            """SELECT m.id, m.original_text, m.source_url, m.published_at,
+                      c.id AS channel_id, c.username, c.name
+               FROM messages m
+               JOIN channels c ON c.id = m.channel_id
+               WHERE m.channel_id != ? AND m.id != ?
+                 AND m.processing_status != 'IGNORED'
+                 AND length(m.original_text) > 40
+                 AND m.published_at > datetime('now', '-3 days')
+               ORDER BY m.id DESC LIMIT 300""",
             (current_channel_id, current_message_id),
         ).fetchall()
 
         matches = []
         for row in rows:
-            similarity = _similarity(keywords, row["original_text"])
-            if similarity >= 0.25:
+            text = row["original_text"]
+            # Must share at least one number OR proper noun (strong signal)
+            strong_overlap = False
+            for num in numbers:
+                if num in text:
+                    strong_overlap = True
+                    break
+            if not strong_overlap:
+                for noun in proper_nouns:
+                    if noun.lower() in text.lower():
+                        strong_overlap = True
+                        break
+            if not strong_overlap:
+                continue
+
+            # High keyword threshold to avoid common-word matches
+            similarity = _similarity(keywords, text)
+            if similarity >= 0.5:
                 matches.append(
                     ChannelMatch(
                         source_id=row["id"],
@@ -67,7 +88,7 @@ def find_cross_channel_matches(
                         channel_username=row["username"],
                         channel_name=row["name"],
                         message_id=row["id"],
-                        message_text=row["original_text"],
+                        message_text=text,
                         source_url=row["source_url"] or "",
                         published_at=row["published_at"],
                         similarity=similarity,
@@ -80,21 +101,33 @@ def find_cross_channel_matches(
         conn.close()
 
 
+STOP_WORDS = {
+    "в", "на", "с", "и", "по", "из", "у", "к", "за", "от", "до", "о", "об",
+    "что", "это", "как", "для", "при", "про", "его", "её", "их", "они",
+    "был", "была", "было", "будет", "стал", "стала", "есть", "начали",
+    "год", "года", "лет", "день", "дня", "время", "больше", "меньше",
+    "стали", "стать", "тратить", "тратят", "пишет", "сообщает", "заявил",
+}
+
+
 def _extract_keywords(text: str) -> list[str]:
-    """Extract meaningful keywords from event title."""
-    stop_words = {
-        "в", "на", "с", "и", "по", "из", "у", "к", "за", "от", "до", "о", "об",
-        "что", "это", "как", "для", "при", "про", "его", "её", "их", "они",
-        "был", "была", "было", "будет", "стал", "стала", "есть",
-        "год", "года", "лет", "день", "дня", "время",
-    }
     words = [w.strip(".,!?«»\"'()[]{}:;").lower() for w in text.split()]
-    keywords = [w for w in words if len(w) >= 3 and w not in stop_words]
-    return list(dict.fromkeys(keywords))[:10]
+    keywords = [w for w in words if len(w) >= 4 and w not in STOP_WORDS]
+    return list(dict.fromkeys(keywords))[:12]
+
+
+def _extract_numbers(text: str) -> list[str]:
+    """Extract numbers as strong identity signals: $529, 21-летний, 2026."""
+    return re.findall(r"\d+[\d\-.,]*", text)[:6]
+
+
+def _extract_proper_nouns(text: str) -> list[str]:
+    """Extract capitalized multi-word names and known entities."""
+    words = re.findall(r"\b[А-ЯЁA-Z][а-яёa-z]{2,}\b", text)
+    return [w for w in words if w.lower() not in STOP_WORDS][:6]
 
 
 def _similarity(keywords: list[str], text: str) -> float:
-    """Calculate how many keywords appear in the text."""
     if not keywords:
         return 0.0
     text_lower = text.lower()

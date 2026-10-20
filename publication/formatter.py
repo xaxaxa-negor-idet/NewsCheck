@@ -1,5 +1,5 @@
-﻿# -*- coding: utf-8 -*-
-"""Publication formatter v4: no theses in output, numbered sources only."""
+# -*- coding: utf-8 -*-
+"""Publication formatter v5: no theses, numbered sources, exact origin URL."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,8 +51,6 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
         f"{icon} {escape(post.status)}",
     ]
 
-    # NO theses listed — only verdict summary
-    # Reasons shown only for non-obvious statuses
     if post.status in ("CONFLICTING", "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ", "INSUFFICIENT_DATA") and post.reason:
         lines.append(escape(post.reason))
 
@@ -61,7 +59,10 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
         for idx, link in enumerate(post.source_links[:5], 1):
             lines.append(f"[{idx}] {link}")
 
-    lines.append(f"@{escape(post.source_channel)}")
+    lines.append(f"Оригинал: @{escape(post.source_channel)}")
+
+    if post.original_url:
+        lines.append(post.original_url)
 
     if post.tags:
         lines.append(" ".join(f"#{tag.lstrip('#')}" for tag in post.tags[:5]))
