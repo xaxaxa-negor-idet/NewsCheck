@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from matching.cross_channel import find_cross_channel_matches
+from matching.event_dedup import compute_fingerprint, find_existing_event
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -76,11 +77,19 @@ class NewsCheckPipeline:
 
             event_data = analysis["event"]
 
-            # Stage 5: Event creation (simplified matcher for now — no existing events yet)
+            # Stage 5: duplicate detection — skip if this event already exists
+            existing_event_id = find_existing_event(event_data["title"], message["original_text"], self.db_path)
+            if existing_event_id:
+                conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message_id,))
+                conn.commit()
+                return PipelineOutcome(message_id, True, existing_event_id, "IGNORED", "duplicate event")
+
+            fingerprint = compute_fingerprint(event_data["title"] + " " + message["original_text"][:200])
+
             cursor = conn.execute(
-                "INSERT INTO events (title, summary, location, event_date, event_type, current_status) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (title, summary, location, event_date, event_type, current_status, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (event_data["title"], event_data["summary"], event_data["location"],
-                 event_data["event_date"], event_data["event_type"], "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ"),
+                 event_data["event_date"], event_data["event_type"], "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ", fingerprint),
             )
             event_id = int(cursor.lastrowid)
             conn.execute(

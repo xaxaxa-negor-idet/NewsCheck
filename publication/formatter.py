@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Publication formatter v7 — strict template.
 
 Template per user spec:
@@ -117,6 +117,7 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
 
     post_url = post.original_url or f"https://t.me/{post.source_channel}"
     lines.append(f"Пост: {_link(post_url, post_url)}")
+    lines.append(f"ID: #{post.event_id}")
 
     if post.tags:
         lines.append("")

@@ -1,4 +1,4 @@
-﻿"""Web panel: SPEC 14 — server-rendered admin interface."""
+"""Web panel: SPEC 14 — server-rendered admin interface."""
 from __future__ import annotations
 
 import sqlite3
@@ -50,5 +50,20 @@ def get_messages(db_path: str | None = None, limit: int = 50, status: str | None
                 (limit,),
             ).fetchall()
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_events(db_path: str | None = None, limit: int = 50) -> list[dict]:
+    path = Path(db_path) if db_path else ROOT / "newscheck.db"
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT e.id, e.title, e.current_status, e.created_at, e.status_reason "
+            "FROM events e ORDER BY e.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()

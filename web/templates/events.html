@@ -1,0 +1,27 @@
+﻿# -*- coding: utf-8 -*-
+{% extends "base.html" %} {% block title %}События — NewsCheck{% endblock %}
+{% block content %}
+<h1>События</h1>
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Заголовок</th>
+      <th>Статус</th>
+      <th>Причина</th>
+      <th>Создано</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td><code>#{{ e.id }}</code></td>
+      <td>{{ e.title }}</td>
+      <td>{{ e.current_status }}</td>
+      <td>{{ e.status_reason or "—" }}</td>
+      <td>{{ e.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

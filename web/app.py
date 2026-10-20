@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Web panel: SPEC 14 — admin interface with auth."""
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
 
-from web.queries import get_dashboard_counts, get_messages
+from web.queries import get_dashboard_counts, get_events, get_messages
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -52,6 +52,13 @@ def logout():
 def dashboard():
     counts = get_dashboard_counts()
     return render_template("dashboard.html", counts=counts)
+
+
+@app.route("/events")
+@login_required
+def events():
+    items = get_events(limit=100)
+    return render_template("events.html", events=items)
 
 
 @app.route("/messages")
