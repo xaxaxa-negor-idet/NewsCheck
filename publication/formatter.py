@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-"""Publication formatter: SPEC 11.1 — compact thesis output v2."""
+"""Publication formatter v3: compact theses + numbered source links."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,23 +51,19 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
         f"{icon} {escape(post.status)}",
     ]
 
-    # Compact claims: if all same status, one line; else list only differing ones
     if post.claims:
         statuses = {claim.status for claim in post.claims}
         if len(statuses) == 1 and post.status in ("ПОДТВЕРЖДЕНО", "ОПРОВЕРГНУТО"):
-            # All claims same verdict — no need to list each
             lines.append(f"Тезисы: {escape(post.status)}")
         else:
             lines.append("Тезисы:")
             for claim in post.claims:
-                sources = ", ".join(claim.sources or [])
-                suffix = f" ({sources})" if sources else ""
-                lines.append(f"• {escape(claim.text)}: {escape(claim.status)}{suffix}")
+                lines.append(f"• {escape(claim.text)}: {escape(claim.status)}")
 
     if post.source_links:
         lines.append("Источники:")
-        for link in post.source_links[:5]:
-            lines.append(f"• {escape(link)}")
+        for idx, link in enumerate(post.source_links[:5], 1):
+            lines.append(f"[{idx}] {link}")
 
     lines.append(f"@{escape(post.source_channel)}")
 

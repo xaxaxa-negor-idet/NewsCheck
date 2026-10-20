@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import sqlite3
 import sys
 
@@ -39,7 +39,7 @@ def verifier(claims, sources):
     }
 
 
-def calculator(verdicts):
+def calculator(verdicts, source_count=0):
     return {"status": "ПОДТВЕРЖДЕНО", "reason": "все ключевые подтверждены"}
 
 

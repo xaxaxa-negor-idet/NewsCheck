@@ -153,7 +153,7 @@ class NewsCheckPipeline:
                         "status": verdict_map.get(row["id"], {}).get("status", row["status"]),
                         "is_key": bool(row["is_key"]),
                     })
-                status_result = calculator(enriched)
+                status_result = calculator(enriched, source_count=len(all_sources))
             else:
                 status_result = {"status": "НЕ ПОДТВЕРЖДЕНО", "reason": "нет вердиктов"}
 

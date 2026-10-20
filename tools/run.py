@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Full runner: poll channels → analyze → search → verify → status → publish (dry-run)."""
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def verifier_fn(client):
     return verify
 
 
-def calculator_fn(verdicts: list[dict]) -> dict:
+def calculator_fn(verdicts: list[dict], source_count: int = 0) -> dict:
     claim_verdicts = []
     for verdict in verdicts:
         status = ClaimStatus(verdict["status"])
@@ -82,7 +82,7 @@ def calculator_fn(verdicts: list[dict]) -> dict:
         claim_verdicts.append(
             ClaimVerdict(status=status, is_key=is_key, direct_refutation=status == ClaimStatus.REFUTED)
         )
-    result = calculate_status(claim_verdicts)
+    result = calculate_status(claim_verdicts, source_count=source_count)
     return {"status": result.status.value, "reason": result.reason}
 
 

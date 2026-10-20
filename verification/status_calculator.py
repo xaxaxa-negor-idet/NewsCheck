@@ -1,8 +1,8 @@
-﻿"""Status Calculator: SPEC 9 / 17.6 — deterministic, no LLM."""
+﻿# -*- coding: utf-8 -*-
+"""Status Calculator: SPEC 9 / 17.6 — deterministic, no LLM. v2"""
 from __future__ import annotations
 
 from dataclasses import dataclass
-
 from enum import Enum
 
 
@@ -41,7 +41,7 @@ class StatusExplanation:
     reason: str
 
 
-def calculate_status(claims: list[ClaimVerdict]) -> StatusExplanation:
+def calculate_status(claims: list[ClaimVerdict], source_count: int = 0) -> StatusExplanation:
     key_claims = [claim for claim in claims if claim.is_key]
 
     if key_claims and all(claim.status == ClaimStatus.INSUFFICIENT_DATA for claim in key_claims):
@@ -64,5 +64,9 @@ def calculate_status(claims: list[ClaimVerdict]) -> StatusExplanation:
 
     if confirmed:
         return StatusExplanation(EventStatus.PARTIAL, "Подтверждена часть ключевых утверждений")
+
+    # v2: if sources were found but claims unconfirmed, it's still partial — sources exist
+    if source_count >= 2:
+        return StatusExplanation(EventStatus.PARTIAL, f"Найдено {source_count} источников по теме, но точных подтверждений тезисов нет")
 
     return StatusExplanation(EventStatus.UNCONFIRMED, "Подтверждений по ключевым утверждениям не найдено")
