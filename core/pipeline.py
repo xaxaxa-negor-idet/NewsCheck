@@ -63,6 +63,10 @@ class NewsCheckPipeline:
                 conn.commit()
                 return PipelineOutcome(message_id, True, None, "IGNORED", "stale message >48h")
 
+            # Mark as PROCESSING immediately to prevent duplicate processing
+            conn.execute("UPDATE messages SET processing_status='PROCESSING' WHERE id=?", (message_id,))
+            conn.commit()
+
             # Stage 4: LLM analysis
             analysis = analyzer(message["original_text"])
             if not analysis["is_news"]:

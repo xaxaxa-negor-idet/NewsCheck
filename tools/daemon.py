@@ -115,6 +115,14 @@ def process_new_messages(db_path: str, pipeline, fns, limit: int) -> int:
     """Process pending messages (freshest first), return count processed."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # Recover stuck PROCESSING messages (crashed mid-processing >10 min ago)
+    conn.execute(
+        """UPDATE messages SET processing_status='ERROR'
+           WHERE processing_status='PROCESSING'
+             AND received_at < datetime('now', '-10 minutes')"""
+    )
+    conn.commit()
+
     messages = conn.execute(
         """SELECT id FROM messages
            WHERE processing_status='NEW' AND length(original_text) > 40
