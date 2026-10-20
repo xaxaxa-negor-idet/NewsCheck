@@ -82,9 +82,12 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         )
         rendered = format_post(post)
         if media_url:
+            kind = 'photo'
+            if media_url.endswith(('.mp4', '.mov', '.avi')):
+                kind = 'video'
             from publication.telegram import RenderedPostWithMedia
             rendered = RenderedPostWithMedia(
-                event_id=post.event_id, text=rendered, media_url=media_url
+                event_id=post.event_id, text=rendered, media_url=media_url, media_kind=kind
             )
 
         if token and destination_channel:
