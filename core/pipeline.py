@@ -128,6 +128,27 @@ class NewsCheckPipeline:
                 search_results.extend(results)
 
             # Merge sources: external first (higher trust), then cross-channel
+            # Reject stale sources: news older than 7 days is not evidence for a fresh event
+            from datetime import datetime, timedelta, timezone as _tz
+            _cutoff = datetime.now(_tz.utc) - timedelta(days=7)
+            _combined = search_results + cross_sources
+            _fresh = []
+            for source in _combined:
+                pub = source.get("published_at")
+                if pub is None:
+                    _fresh.append(source)
+                    continue
+                try:
+                    if isinstance(pub, str):
+                        pub = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                    if pub.tzinfo is None:
+                        pub = pub.replace(tzinfo=_tz.utc)
+                    if pub >= _cutoff:
+                        _fresh.append(source)
+                except (ValueError, TypeError):
+                    _fresh.append(source)
+            search_results = _fresh
+
             all_sources = search_results + cross_sources
 
             # Deduplicate by URL and by (domain + title) to avoid identical sources

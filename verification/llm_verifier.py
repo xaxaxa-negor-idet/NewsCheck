@@ -30,12 +30,12 @@ def verify_claims(client: LLMClient, claims: list[dict], sources: list[dict], ma
     user_prompt = (
         "Утверждения:\n"
         + "\n".join(f"ID {claim['id']}: {claim['text']}" for claim in claims)
-        + "\n\nИсточники (полный текст):\n"
+        + "\n\nИсточники (полный текст, с датой публикации):\n"
         + "\n\n".join(
-            f"=== SOURCE ID {source['id']} ===\nDomain: {source.get('domain', '')}\nTitle: {source.get('title', '')}\nText:\n{source.get('text', '')}"
+            f"=== SOURCE ID {source['id']} ===\nDomain: {source.get('domain', '')}\nTitle: {source.get('title', '')}\nPublished: {source.get('published_at', 'unknown')}\nText:\n{source.get('text', '')}"
             for source in sources
         )
-        + "\n\nВерни вердикты по схеме. ВАЖНО: quote должен быть ТОЧНОЙ подстрокой из поля Text источника."
+        + "\n\nВерни вердикты по схеме. ВАЖНО:\n1. quote должен быть ТОЧНОЙ подстрокой из поля Text источника.\n2. Источник подтверждает утверждение ТОЛЬКО если описывает ТОТ ЖЕ САМЫЙ инцидент/событие, а не похожее другое событие в другое время.\n3. Если источник описывает другой случай (даже похожий) — это UNCONFIRMED, не CONFIRMED."
     )
 
     allowed_claim_ids = {claim["id"] for claim in claims}
