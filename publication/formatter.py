@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Publication formatter v5: no theses, numbered sources, exact origin URL."""
+﻿# -*- coding: utf-8 -*-
+"""Publication formatter v6: HTML hyperlinks — short labels, hidden URLs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,6 +42,28 @@ STATUS_ICONS = {
 }
 
 
+def _link(label: str, url: str) -> str:
+    """HTML hyperlink: short clickable label, URL hidden."""
+    return f'<a href="{escape(url, quote=True)}">{escape(label)}</a>'
+
+
+def _domain_label(url: str) -> str:
+    """Extract short readable domain from URL for label."""
+    try:
+        from urllib.parse import urlsplit
+        host = urlsplit(url).netloc.replace("www.", "")
+        if not host:
+            return url[:30]
+        # Telegram post: @channel
+        if "t.me" in host:
+            parts = url.rstrip("/").split("/")
+            if len(parts) >= 2:
+                return f"@{parts[-2]}"
+        return host
+    except Exception:
+        return url[:30]
+
+
 def format_post(post: EventPost, updated_at: str | None = None) -> str:
     icon = STATUS_ICONS.get(post.status, "❔")
     lines = [
@@ -55,14 +77,12 @@ def format_post(post: EventPost, updated_at: str | None = None) -> str:
         lines.append(escape(post.reason))
 
     if post.source_links:
-        lines.append("Источники:")
+        lines.append("Подтверждения:")
         for idx, link in enumerate(post.source_links[:5], 1):
-            lines.append(f"[{idx}] {link}")
+            domain = _domain_label(link)
+            lines.append(_link(f"Подтверждение {idx} · {domain}", link))
 
-    lines.append(f"Оригинал: @{escape(post.source_channel)}")
-
-    if post.original_url:
-        lines.append(post.original_url)
+    lines.append(f"Оригинал: {_link('@' + escape(post.source_channel), post.original_url or 'https://t.me/' + post.source_channel)}")
 
     if post.tags:
         lines.append(" ".join(f"#{tag.lstrip('#')}" for tag in post.tags[:5]))
