@@ -4,3 +4,10 @@ media/
 .env 
 __pycache__/ 
 *.pyc 
+
+daemon.lock
+daemon.log
+*.db-journal
+tools/_fix.py
+tools/_t.py
+tools/_q.py
