@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from search.media_fetcher import fetch_fresh_media
 from publication.telegram import TelegramChannelDestination
 from publication.formatter import ClaimLine, EventPost, format_post
 
@@ -52,27 +53,28 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         ).fetchall()
         source_links = [row["url"] for row in event_sources]
 
-        # Extract first real photo (skip emojis)
-        import json as json_mod
-        media_url = None
-        media_kind = "photo"
-        try:
-            media_list = json_mod.loads(event["media"]) if event["media"] else []
-            for m in media_list:
-                if isinstance(m, str) and ".mp4" in m:
-                    media_url = str(m)
-                    media_kind = "video"
-                    break
-            if not media_url:
+        # Fetch FRESH media URL from live t.me page (DB urls may be stale/truncated)
+        media_url, media_kind = fetch_fresh_media(event["source_url"] or "")
+        if not media_url:
+            # Fallback: DB media
+            import json as json_mod
+            try:
+                media_list = json_mod.loads(event["media"]) if event["media"] else []
                 for m in media_list:
-                    if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
-                        if m.startswith("//"):
-                            m = "https:" + m
+                    if isinstance(m, str) and ".mp4" in m:
                         media_url = str(m)
-                        media_kind = "photo"
+                        media_kind = "video"
                         break
-        except (json_mod.JSONDecodeError, TypeError):
-            pass
+                if not media_url:
+                    for m in media_list:
+                        if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
+                            if m.startswith("//"):
+                                m = "https:" + m
+                            media_url = str(m)
+                            media_kind = "photo"
+                            break
+            except (json_mod.JSONDecodeError, TypeError):
+                pass
 
         post = EventPost(
             event_id=event["id"],
@@ -90,12 +92,9 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         )
         rendered = format_post(post)
         if media_url:
-            kind = 'photo'
-            if media_url.endswith(('.mp4', '.mov', '.avi')):
-                kind = 'video'
             from publication.telegram import RenderedPostWithMedia
             rendered = RenderedPostWithMedia(
-                event_id=post.event_id, text=rendered, media_url=media_url, media_kind=kind
+                event_id=post.event_id, text=rendered, media_url=media_url, media_kind=media_kind
             )
 
         if token and destination_channel:

@@ -1,31 +1,76 @@
 ﻿# -*- coding: utf-8 -*-
 from pathlib import Path
 
-content = Path('core/pipeline.py').read_text(encoding='utf-8-sig')
+content = Path('tools/publish.py').read_text(encoding='utf-8-sig')
 
-old = '''            event_data = analysis["event"]
+old = '''        # Extract first real photo (skip emojis)
+        import json as json_mod
+        media_url = None
+        media_kind = "photo"
+        try:
+            media_list = json_mod.loads(event["media"]) if event["media"] else []
+            for m in media_list:
+                if isinstance(m, str) and ".mp4" in m:
+                    media_url = str(m)
+                    media_kind = "video"
+                    break
+            if not media_url:
+                for m in media_list:
+                    if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
+                        if m.startswith("//"):
+                            m = "https:" + m
+                        media_url = str(m)
+                        media_kind = "photo"
+                        break
+        except (json_mod.JSONDecodeError, TypeError):
+            pass'''
 
-            # Stage 5: Event creation (simplified matcher for now — no existing events yet)'''
-new = '''            event_data = analysis["event"]
+new = '''        # Fetch FRESH media URL from live t.me page (DB urls may be stale/truncated)
+        media_url, media_kind = fetch_fresh_media(event["source_url"] or "")
+        if not media_url:
+            # Fallback: DB media
+            import json as json_mod
+            try:
+                media_list = json_mod.loads(event["media"]) if event["media"] else []
+                for m in media_list:
+                    if isinstance(m, str) and ".mp4" in m:
+                        media_url = str(m)
+                        media_kind = "video"
+                        break
+                if not media_url:
+                    for m in media_list:
+                        if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
+                            if m.startswith("//"):
+                                m = "https:" + m
+                            media_url = str(m)
+                            media_kind = "photo"
+                            break
+            except (json_mod.JSONDecodeError, TypeError):
+                pass'''
 
-            # Stage 5: duplicate detection — skip if this event already exists
-            existing_event_id = find_existing_event(event_data["title"], message["original_text"], self.db_path)
-            if existing_event_id:
-                conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message_id,))
-                conn.commit()
-                return PipelineOutcome(message_id, True, existing_event_id, "IGNORED", "duplicate event")
-
-            fingerprint = compute_fingerprint(event_data["title"] + " " + message["original_text"][:200])
-'''
-content = content.replace(old, new)
-
-old_vals = '''(event_data["title"], event_data["summary"], event_data["location"],
-                 event_data["event_date"], event_data["event_type"], "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ")'''
-new_vals = '''(event_data["title"], event_data["summary"], event_data["location"],
-                 event_data["event_date"], event_data["event_type"], "ТРЕБУЕТ ДОПОЛНИТЕЛЬНОЙ ПРОВЕРКИ", fingerprint)'''
-content = content.replace(old_vals, new_vals)
-
-content = content.replace(' (simplified matcher for now — no existing events yet)', '')
-
-Path('core/pipeline.py').write_text(content, encoding='utf-8')
-print('fixed')
+if old in content:
+    content = content.replace(old, new)
+    content = content.replace(
+        'from publication.telegram import TelegramChannelDestination',
+        'from search.media_fetcher import fetch_fresh_media\nfrom publication.telegram import TelegramChannelDestination'
+    )
+    # also fix the kind var below
+    content = content.replace(
+        '''        if media_url:
+            kind = 'photo'
+            if media_url.endswith(('.mp4', '.mov', '.avi')):
+                kind = 'video'
+            from publication.telegram import RenderedPostWithMedia
+            rendered = RenderedPostWithMedia(
+                event_id=post.event_id, text=rendered, media_url=media_url, media_kind=kind
+            )''',
+        '''        if media_url:
+            from publication.telegram import RenderedPostWithMedia
+            rendered = RenderedPostWithMedia(
+                event_id=post.event_id, text=rendered, media_url=media_url, media_kind=media_kind
+            )'''
+    )
+    Path('tools/publish.py').write_text(content, encoding='utf-8')
+    print('ok')
+else:
+    print('not found')
