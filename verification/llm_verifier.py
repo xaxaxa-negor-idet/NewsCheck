@@ -24,7 +24,7 @@ class VerificationResult:
     prompt_version: str
 
 
-def verify_claims(client: LLMClient, claims: list[dict], sources: list[dict], max_attempts: int = 3) -> VerificationResult:
+def verify_claims(client: LLMClient, claims: list[dict], sources: list[dict], max_attempts: int = 2) -> VerificationResult:
     """claims: [{id, text}]; sources: [{id, title, text, domain, published_at}]"""
     system_prompt = (PROMPTS_DIR / "verifier_v1.md").read_text(encoding="utf-8-sig")
     user_prompt = (
@@ -63,3 +63,4 @@ def verify_claims(client: LLMClient, claims: list[dict], sources: list[dict], ma
         error_feedback = "Ошибки валидации:\n" + "\n".join(errors[:10])
 
     raise ValueError("verifier validation failed: " + "; ".join(last_errors))
+

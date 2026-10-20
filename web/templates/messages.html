@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="stylesheet" href="/static/style.css">
+<meta charset="UTF-8">
+<title>Сообщения — NewsCheck</title>
+</head>
+<body>
+<nav><span class="logo">NewsCheck</span><a href="/">Дашборд</a><a href="/messages">Сообщения</a><a href="/logout">Выйти</a></nav>
+<div class="container">
+<h1>Сообщения</h1>
+<div class="filters">
+<a href="/messages" {% if not current_filter %}class="active"{% endif %}>Все</a>
+<a href="/messages?status=NEW" {% if current_filter == 'NEW' %}class="active"{% endif %}>Новые</a>
+<a href="/messages?status=PROCESSED" {% if current_filter == 'PROCESSED' %}class="active"{% endif %}>Обработанные</a>
+<a href="/messages?status=IGNORED" {% if current_filter == 'IGNORED' %}class="active"{% endif %}>Отброшенные</a>
+</div>
+<table>
+<tr><th>ID</th><th>Канал</th><th>Текст</th><th>Статус</th></tr>
+{% for msg in messages %}
+<tr>
+<td>{{ msg.id }}</td>
+<td>@{{ msg.username }}</td>
+<td>{{ msg.original_text[:120] }}{% if msg.original_text|length > 120 %}…{% endif %}</td>
+<td><span class="badge {{ msg.processing_status }}">{{ msg.processing_status }}</span></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+</body>
+</html>
+

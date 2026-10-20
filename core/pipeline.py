@@ -1,4 +1,4 @@
-"""Pipeline: message → analysis → search → verification → status → publication."""
+﻿"""Pipeline: message → analysis → search → verification → status → publication."""
 from __future__ import annotations
 
 import json
@@ -84,7 +84,7 @@ class NewsCheckPipeline:
             # Stage 6: Search
             search_results = []
             for query in analysis["search_queries"][:3]:
-                results = searcher(query)
+                results = searcher(query)[:3]
                 search_results.extend(results)
 
             # Stage 7: Verification
@@ -131,4 +131,5 @@ class NewsCheckPipeline:
             return PipelineOutcome(message_id, False, event_id, status_result["status"], status_result["reason"])
         finally:
             conn.close()
+
 

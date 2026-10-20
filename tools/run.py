@@ -7,6 +7,8 @@ import json
 import os
 import sqlite3
 import sys
+import functools
+print = functools.partial(print, flush=True)
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,7 +53,7 @@ def analyzer_fn(client):
 
 def searcher_fn():
     def search(query: str) -> list[dict]:
-        results = google_search(query, max_results=5)
+        results = google_search(query, max_results=3)
         return [
             {
                 "id": index,
@@ -152,3 +154,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

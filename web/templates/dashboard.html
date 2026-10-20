@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="stylesheet" href="/static/style.css">
+<meta charset="UTF-8">
+<title>Дашборд — NewsCheck</title>
+</head>
+<body>
+<nav><span class="logo">NewsCheck</span><a href="/">Дашборд</a><a href="/messages">Сообщения</a><a href="/logout">Выйти</a></nav>
+<div class="container">
+<h1>Дашборд</h1>
+<div class="grid">
+<div class="stat"><div class="value">{{ counts.messages_total }}</div><div class="label">Всего сообщений</div></div>
+<div class="stat"><div class="value">{{ counts.messages_new }}</div><div class="label">Новых</div></div>
+<div class="stat"><div class="value">{{ counts.messages_processed }}</div><div class="label">Обработано</div></div>
+<div class="stat"><div class="value">{{ counts.messages_ignored }}</div><div class="label">Отброшено</div></div>
+<div class="stat"><div class="value">{{ counts.events_total }}</div><div class="label">Событий</div></div>
+<div class="stat"><div class="value">{{ counts.events_needs_check }}</div><div class="label">Требуют проверки</div></div>
+<div class="stat"><div class="value">{{ counts.tasks_pending }}</div><div class="label">Задач в очереди</div></div>
+<div class="stat"><div class="value">{{ counts.tasks_failed }}</div><div class="label">Ошибок</div></div>
+</div>
+</div>
+</body>
+</html>
+
