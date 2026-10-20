@@ -35,6 +35,7 @@ from publication.formatter import ClaimLine, EventPost, format_post
 from sources.collector import ingest_poll_result
 from sources.telegram_web import list_messages
 from tools.publish import publish_pending_events
+from tools.daemon_lock import acquire_lock, release_lock
 
 load_dotenv(ROOT / ".env")
 
@@ -183,6 +184,10 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
     print(f"  max messages per cycle: {max_per_cycle}")
     print(f"  db: {db}")
     print(f"  telegram: {'enabled' if os.getenv('TELEGRAM_BOT_TOKEN') and os.getenv('TELEGRAM_CHANNEL_ID') else 'dry-run'}")
+    if not acquire_lock():
+        print("ERROR: another daemon is already running (daemon.lock). Exiting.")
+        return
+
     print("Press Ctrl+C to stop")
 
     cycle = 0
@@ -206,6 +211,7 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
 
         except KeyboardInterrupt:
             print("\nStopped by user")
+            release_lock()
             break
         except Exception as exc:
             print(f"  cycle error: {type(exc).__name__}: {exc}")

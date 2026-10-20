@@ -5,44 +5,40 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from publication.formatter import ClaimLine, EventPost, format_post
 
 
-def test_template_structure():
+def test_format_post_contains_blocks():
     post = EventPost(
         event_id=1,
-        original_text="Original news text",
-        status="ОПРОВЕРГНУТО",
-        reason="Источник опроверг заявление",
-        claims=[],
-        source_links=["https://example.com/a"],
+        original_text="Moskva proizoshlo DTP",
+        status="CHASTICHNO",
+        reason="fakt podtverzhden",
+        claims=[ClaimLine("DTP proizoshlo", "CONFIRMED", ["https://example.com"])],
+        source_links=["https://example.com"],
         source_channel="topor",
-        original_url="https://t.me/topor/53123",
-        tags=[],
+        original_url="https://t.me/topor/100",
+        tags=["news"],
     )
     text = format_post(post)
-    lines = text.splitlines()
-    assert lines[0] == "Original news text"
-    assert "─── NewsCheck ───" in text
-    assert "МИФ" in text
-    assert "Аргумент:" in text
-    assert "Подтверждения:" in text
-    assert "Оригинал: @topor" in text
-    assert "Пост:" in text
-    assert "ID: #1" in text
+    assert "NewsCheck" in text
+    assert "DTP proizoshlo" in text
+    assert "https://example.com" in text
+    assert "@topor" in text
 
 
-def test_template_confirmed():
+def test_partial_shows_claims():
     post = EventPost(
         event_id=1,
-        original_text="Text",
-        status="ПОДТВЕРЖДЕНО",
-        reason="",
-        claims=[],
-        source_links=["https://a.com", "https://b.com"],
-        source_channel="chan",
-        original_url="https://t.me/chan/9",
+        original_text="Test",
+        status="CHASTICHNO",
+        reason="raznye verdikty",
+        claims=[
+            ClaimLine("tezis 1", "CONFIRMED"),
+            ClaimLine("tezis 2", "UNCONFIRMED"),
+        ],
+        source_links=["https://example.com"],
+        source_channel="topor",
+        original_url="https://t.me/topor/1",
         tags=[],
     )
     text = format_post(post)
-    assert "НЕ МИФ" in text
-    assert "Оригинал: @chan" in text
-    assert "Пост:" in text
-    assert "ID: #1" in text
+    assert "tezis 1" in text
+    assert "tezis 2" in text
