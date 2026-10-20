@@ -1,10 +1,11 @@
-# -*- coding: utf-8 -*-
-"""Continuous mode: poll channels every N seconds, process new messages instantly, publish immediately.
+﻿# -*- coding: utf-8 -*-
+"""Continuous mode v3: bulletproof daemon.
 
-Usage:
-    python tools/daemon.py            # default: poll every 60s
-    python tools/daemon.py --interval 30
-    python tools/daemon.py --max-per-cycle 5
+- per-channel poll retries
+- per-message isolation (one failure never kills the cycle)
+- LLM auto-rebuild on repeated failures
+- publish retries
+- fresh-lock release on exit
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import os
 import sqlite3
 import sys
 import time
+import traceback
 from pathlib import Path
 
 print = functools.partial(print, flush=True)
@@ -30,14 +32,14 @@ from core.pipeline import NewsCheckPipeline
 from database.migrate import apply_migrations
 from search.google_news import search as google_news_search
 from verification.llm_verifier import verify_claims
-from publication.telegram import TelegramChannelDestination
-from publication.formatter import ClaimLine, EventPost, format_post
 from sources.collector import ingest_poll_result
 from sources.telegram_web import list_messages
 from tools.publish import publish_pending_events
 from tools.daemon_lock import acquire_lock, release_lock
 
 load_dotenv(ROOT / ".env")
+
+LLM_FAILURE_THRESHOLD = 5
 
 
 def build_llm_client() -> LLMClient:
@@ -56,17 +58,24 @@ def analyzer_fn(client):
 
 def searcher_fn():
     def search(query: str) -> list[dict]:
-        results = google_news_search(query, max_results=3)
-        return [
-            {
-                "id": idx,
-                "title": r.title,
-                "text": r.snippet or r.title,
-                "domain": r.domain,
-                "url": r.url,
-            }
-            for idx, r in enumerate(results, start=1)
-        ]
+        for attempt in range(3):
+            try:
+                results = google_news_search(query, max_results=4)
+                return [
+                    {
+                        "id": idx,
+                        "title": r.title,
+                        "text": (r.snippet or "")[:1000] or r.title,
+                        "domain": r.domain,
+                        "url": r.url,
+                        "published_at": str(r.published_at) if r.published_at else None,
+                    }
+                    for idx, r in enumerate(results, start=1)
+                ]
+            except Exception:
+                if attempt == 2:
+                    return []
+                time.sleep(3 * (attempt + 1))
     return search
 
 
@@ -90,23 +99,20 @@ def calculator_fn(verdicts, source_count=0):
 
 
 def poll_channels(db_path: str) -> int:
-    """Poll all channels, return count of new messages collected."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     channels = conn.execute("SELECT id, username, name FROM channels WHERE enabled=1").fetchall()
     conn.close()
 
     total_new = 0
-    import time as _time
-    session = None
     for channel in channels:
         ok = False
         for attempt in range(3):
             try:
                 result = list_messages(channel["username"])
                 if result.kind == "UNAVAILABLE":
-                    print(f"  @{channel['username']}: UNAVAILABLE attempt {attempt+1}")
-                    _time.sleep(3 * (attempt + 1))
+                    print(f"  @{channel['username']}: retry {attempt+1}")
+                    time.sleep(3 * (attempt + 1))
                     continue
                 outcome = ingest_poll_result(result, channel["id"], db_path)
                 total_new += outcome.inserted
@@ -114,23 +120,24 @@ def poll_channels(db_path: str) -> int:
                     print(f"  @{channel['username']}: +{outcome.inserted} new, {outcome.updated} edited")
                 ok = True
                 break
-            except Exception as exc:
-                print(f"  @{channel['username']}: attempt {attempt+1} failed: {type(exc).__name__}")
-                _time.sleep(3 * (attempt + 1))
+            except Exception:
+                time.sleep(3 * (attempt + 1))
         if not ok:
-            print(f"  @{channel['username']}: FAILED after retries")
+            print(f"  @{channel['username']}: unavailable this cycle")
     return total_new
 
 
-def process_new_messages(db_path: str, pipeline, fns, limit: int) -> int:
-    """Process pending messages (freshest first), return count processed."""
+def process_new_messages(db_path: str, pipeline, fns, limit: int, llm_failures: list) -> int:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    # Recover stuck PROCESSING messages (crashed mid-processing >10 min ago)
     conn.execute(
-        """UPDATE messages SET processing_status='ERROR'
-           WHERE processing_status='PROCESSING'
-             AND received_at < datetime('now', '-10 minutes')"""
+        "UPDATE messages SET processing_status='ERROR' "
+        "WHERE processing_status='PROCESSING' AND received_at < datetime('now', '-10 minutes')"
+    )
+    conn.execute(
+        "UPDATE messages SET processing_status='IGNORED' "
+        "WHERE processing_status='NEW' AND length(original_text) > 40 "
+        "AND published_at < datetime('now', '-1 hours')"
     )
     conn.commit()
 
@@ -144,33 +151,29 @@ def process_new_messages(db_path: str, pipeline, fns, limit: int) -> int:
 
     processed = 0
     for message in messages:
+        mid = message["id"]
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
-        row = conn.execute("SELECT original_text FROM messages WHERE id=?", (message["id"],)).fetchone()
-        text = row["original_text"] if row else ""
+        row = conn.execute("SELECT original_text FROM messages WHERE id=?", (mid,)).fetchone()
         conn.close()
-
-        if not should_process(text):
+        if not row or not should_process(row["original_text"] or ""):
             conn = sqlite3.connect(db_path)
-            conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message["id"],))
+            conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (mid,))
             conn.commit()
             conn.close()
             continue
-
         try:
             outcome = pipeline.process_pending_message(
-                message["id"],
-                fns["analyzer"],
-                fns["searcher"],
-                fns["verifier"],
-                fns["calculator"],
+                mid, fns["analyzer"], fns["searcher"], fns["verifier"], fns["calculator"]
             )
-            print(f"  msg {message['id']}: {outcome.status} (event {outcome.event_id})")
+            print(f"  msg {mid}: {outcome.status} (event {outcome.event_id})")
             processed += 1
         except Exception as exc:
-            print(f"  msg {message['id']}: ERROR {type(exc).__name__}: {exc}")
+            print(f"  msg {mid}: ERROR {type(exc).__name__}: {exc}")
+            traceback.print_exc()
+            llm_failures.append(1)
             conn = sqlite3.connect(db_path)
-            conn.execute("UPDATE messages SET processing_status='ERROR' WHERE id=?", (message["id"],))
+            conn.execute("UPDATE messages SET processing_status='ERROR' WHERE id=?", (mid,))
             conn.commit()
             conn.close()
     return processed
@@ -182,6 +185,7 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
 
     client = build_llm_client()
     pipeline = NewsCheckPipeline(db)
+    llm_failures: list[int] = []
     fns = {
         "analyzer": analyzer_fn(client),
         "searcher": searcher_fn(),
@@ -189,49 +193,65 @@ def run_daemon(interval: int = 60, max_per_cycle: int = 5, db_path: str | None =
         "calculator": calculator_fn,
     }
 
-    print(f"NewsCheck daemon started")
+    print("NewsCheck daemon v3 started")
     print(f"  poll interval: {interval}s")
     print(f"  max messages per cycle: {max_per_cycle}")
     print(f"  db: {db}")
-    print(f"  telegram: {'enabled' if os.getenv('TELEGRAM_BOT_TOKEN') and os.getenv('TELEGRAM_CHANNEL_ID') else 'dry-run'}")
+    token_ok = bool(os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHANNEL_ID"))
+    print(f"  telegram: {'enabled' if token_ok else 'dry-run'}")
+
     if not acquire_lock():
         print("ERROR: another daemon is already running (daemon.lock). Exiting.")
         return
-
     print("Press Ctrl+C to stop")
 
     cycle = 0
-    while True:
-        cycle += 1
-        try:
-            print(f"\n--- cycle {cycle} [{time.strftime('%H:%M:%S')}] ---")
+    try:
+        while True:
+            cycle += 1
+            try:
+                print(f"\n--- cycle {cycle} [{time.strftime('%H:%M:%S')}] ---")
+                new_count = poll_channels(db)
+                print(f"  collected: {new_count} new messages")
 
-            new_count = poll_channels(db)
-            print(f"  collected: {new_count} new messages")
+                conn = sqlite3.connect(db)
+                pending = conn.execute(
+                    "SELECT COUNT(*) FROM messages WHERE processing_status='NEW' AND length(original_text) > 40"
+                ).fetchone()[0]
+                conn.close()
 
-            conn = sqlite3.connect(db)
-            pending = conn.execute(
-                "SELECT COUNT(*) FROM messages WHERE processing_status='NEW' AND length(original_text) > 40"
-            ).fetchone()[0]
-            conn.close()
-            if new_count > 0 or pending > 0 or cycle == 1:
-                processed = process_new_messages(db, pipeline, fns, max_per_cycle)
-                print(f"  processed: {processed}")
+                if new_count > 0 or pending > 0:
+                    processed = process_new_messages(db, pipeline, fns, max_per_cycle, llm_failures)
+                    print(f"  processed: {processed}")
 
-                published = publish_pending_events(limit=max_per_cycle)
-                for item in published:
-                    print(f"  published: event {item.get('event_id')} -> {item.get('status')}")
-            else:
-                print("  nothing new, sleeping")
+                    if processed > 0:
+                        for attempt in range(3):
+                            published = publish_pending_events(limit=max_per_cycle)
+                            if published:
+                                for item in published:
+                                    print(f"  published: event {item.get('event_id')} -> {item.get('status')}")
+                            if not published or all(i.get("status") == "PUBLISHED" for i in published):
+                                break
+                            time.sleep(5)
+                else:
+                    print("  nothing new, sleeping")
 
-        except KeyboardInterrupt:
-            print("\nStopped by user")
-            release_lock()
-            break
-        except Exception as exc:
-            print(f"  cycle error: {type(exc).__name__}: {exc}")
+                if len(llm_failures) >= LLM_FAILURE_THRESHOLD:
+                    print("  rebuilding LLM client after repeated failures")
+                    client = build_llm_client()
+                    fns["analyzer"] = analyzer_fn(client)
+                    fns["verifier"] = verifier_fn(client)
+                    llm_failures.clear()
 
-        time.sleep(min(interval, 30))
+            except Exception as exc:
+                print(f"  cycle error: {type(exc).__name__}: {exc}")
+                traceback.print_exc()
+
+            time.sleep(min(interval, 30))
+    except KeyboardInterrupt:
+        print("\nStopped by user")
+    finally:
+        release_lock()
 
 
 def main():

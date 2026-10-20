@@ -1,0 +1,51 @@
+NewsCheck daemon v3 started
+  poll interval: 60s
+  max messages per cycle: 5
+  db: D:\NewsCheck\newscheck.db
+  telegram: enabled
+Press Ctrl+C to stop
+
+--- cycle 1 [02:31:40] ---
+  @nexta_live: +0 new, 8 edited
+  @shot_shot: +0 new, 3 edited
+  collected: 0 new messages
+  msg 177: IGNORED (event None)
+  msg 171: IGNORED (event None)
+  msg 169: IGNORED (event None)
+  msg 167: IGNORED (event None)
+  processed: 4
+
+--- cycle 2 [02:32:18] ---
+  collected: 0 new messages
+  msg 165: IGNORED (event None)
+  msg 162: IGNORED (event None)
+  msg 156: IGNORED (event None)
+  msg 145: IGNORED (event None)
+  msg 117: IGNORED (event None)
+  processed: 5
+
+--- cycle 3 [02:32:56] ---
+  @topor: retry 1
+  collected: 0 new messages
+  msg 143: IGNORED (event None)
+  processed: 1
+
+--- cycle 4 [02:33:47] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 5 [02:34:24] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 6 [02:35:01] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 7 [02:35:37] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 8 [02:36:14] ---
+  collected: 0 new messages
+  nothing new, sleeping
