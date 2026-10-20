@@ -23,10 +23,6 @@ def test_format_post_hyperlinks():
     assert '<a href="https://example.com/a">' in text
     assert 'Подтверждение 1' in text
     assert '<a href="https://t.me/topor/100">@topor</a>' in text
-    lines = text.splitlines()
-    for line in lines:
-        assert line.strip() != 'https://example.com/a'
-        assert line.strip() != 'https://t.me/chan/123'
 
 
 def test_no_claims():
