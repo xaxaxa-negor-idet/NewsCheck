@@ -89,3 +89,39 @@ def test_not_news_is_ignored(tmp_path):
     pipeline = NewsCheckPipeline(db)
     outcome = pipeline.process_pending_message(message_id, not_news_analyzer, searcher, verifier, calculator)
     assert outcome.skipped and outcome.status == "IGNORED"
+
+
+def test_pipeline_deduplicates_sources(tmp_path):
+    db, message_id = prepare(tmp_path)
+    pipeline = NewsCheckPipeline(db)
+
+    def analyzer(text):
+        return {
+            "is_news": True,
+            "event": {"title": "DTP", "summary": "s", "location": None, "event_date": None, "participants": [], "organizations": [], "roads_or_objects": [], "event_type": None},
+            "claims": [{"text": "claim", "is_key": True}],
+            "entities": [],
+            "search_queries": ["q1"],
+            "tags": [],
+        }
+
+    def searcher(query):
+        return [
+            {"id": 1, "title": "Same", "text": "t1", "domain": "news.com", "url": "https://news.com/a?utm=1"},
+            {"id": 2, "title": "Same", "text": "t1", "domain": "news.com", "url": "https://news.com/a?utm=2"},
+            {"id": 3, "title": "Other", "text": "t2", "domain": "news.com", "url": "https://news.com/b"},
+        ]
+
+    def verifier(claims, sources):
+        return {"claim_verdicts": [{"claim_id": 1, "status": "CONFIRMED", "evidence": []}]}
+
+    def calculator(verdicts, source_count=0):
+        return {"status": "PODTVERZHDENO", "reason": "ok"}
+
+    outcome = pipeline.process_pending_message(message_id, analyzer, searcher, verifier, calculator)
+
+    import sqlite3
+    conn = sqlite3.connect(db)
+    count = conn.execute("SELECT COUNT(*) FROM sources").fetchone()[0]
+    conn.close()
+    assert count == 2  # dedup: a?utm=1 == a?utm=2, b stays

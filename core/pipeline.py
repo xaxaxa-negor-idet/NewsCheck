@@ -116,6 +116,29 @@ class NewsCheckPipeline:
 
             # Merge sources: external first (higher trust), then cross-channel
             all_sources = search_results + cross_sources
+
+            # Deduplicate by URL and by (domain + title) to avoid identical sources
+            seen_urls = set()
+            seen_domain_title = set()
+            deduped = []
+            for source in all_sources:
+                url = source.get("url", "")
+                domain = source.get("domain", "")
+                title = (source.get("title", "") or "")[:80]
+                url_key = url.split("?")[0] if url else ""
+                domain_title_key = (domain, title)
+
+                if url_key and url_key in seen_urls:
+                    continue
+                if domain_title_key in seen_domain_title:
+                    continue
+
+                if url_key:
+                    seen_urls.add(url_key)
+                seen_domain_title.add(domain_title_key)
+                deduped.append(source)
+
+            all_sources = deduped
             for idx, source in enumerate(all_sources, 1):
                 source["id"] = idx
 
