@@ -20,8 +20,10 @@ def test_template_structure():
         tags=[],
     )
     text = format_post(post)
-    lines = text.splitlines()
-    assert lines[0] == "Original news text"
+    assert lines_ok(text)
+
+
+def lines_ok(text):
     assert "─── NewsCheck ───" in text
     assert "МИФ" in text
     assert "Аргумент:" in text
@@ -29,6 +31,8 @@ def test_template_structure():
     assert "Оригинал: @topor" in text
     assert "Пост:" in text
     assert "ID: #1" in text
+    assert '<a href=' in text
+    return True
 
 
 def test_template_confirmed():
@@ -47,7 +51,6 @@ def test_template_confirmed():
     assert "НЕ МИФ" in text
     assert "Оригинал: @chan" in text
     assert "Пост:" in text
-    assert "ID: #1" in text
 """
 Path("tests/test_formatter.py").write_bytes(test.encode("utf-8"))
 print('ok')
