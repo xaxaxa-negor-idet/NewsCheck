@@ -53,15 +53,15 @@ class NewsCheckPipeline:
                 raise ValueError(f"message not found: {message_id}")
             message_channel_id = message["channel_id"]
 
-            # Skip stale messages (older than 48 hours)
+            # Skip stale messages: published more than 1 hour ago
             age = conn.execute(
                 "SELECT (julianday('now') - julianday(m.published_at)) * 24 FROM messages m WHERE m.id = ?",
                 (message_id,),
             ).fetchone()
-            if age and age[0] is not None and age[0] > 48:
+            if age and age[0] is not None and age[0] > 1.0:
                 conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message_id,))
                 conn.commit()
-                return PipelineOutcome(message_id, True, None, "IGNORED", "stale message >48h")
+                return PipelineOutcome(message_id, True, None, "IGNORED", "stale message >1h")
 
             # Mark as PROCESSING immediately to prevent duplicate processing
             conn.execute("UPDATE messages SET processing_status='PROCESSING' WHERE id=?", (message_id,))
