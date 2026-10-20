@@ -55,14 +55,22 @@ def publish_pending_events(channel_id: str | None = None, db_path: str | None = 
         # Extract first real photo (skip emojis)
         import json as json_mod
         media_url = None
+        media_kind = "photo"
         try:
             media_list = json_mod.loads(event["media"]) if event["media"] else []
             for m in media_list:
-                if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
-                    if m.startswith("//"):
-                        m = "https:" + m
+                if isinstance(m, str) and ".mp4" in m:
                     media_url = str(m)
+                    media_kind = "video"
                     break
+            if not media_url:
+                for m in media_list:
+                    if isinstance(m, str) and ("cdn" in m or m.endswith((".jpg", ".jpeg", ".png"))):
+                        if m.startswith("//"):
+                            m = "https:" + m
+                        media_url = str(m)
+                        media_kind = "photo"
+                        break
         except (json_mod.JSONDecodeError, TypeError):
             pass
 

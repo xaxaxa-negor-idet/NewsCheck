@@ -1,4 +1,4 @@
-﻿"""Telegram public web-preview source adapter. SPEC 5.2, 5.5."""
+"""Telegram public web-preview source adapter. SPEC 5.2, 5.5."""
 from __future__ import annotations
 
 import re
@@ -52,6 +52,18 @@ def parse_public_page(html: str, channel: str) -> list[SourceMessage]:
         text = _text_to_plain(text_match.group(1)) if text_match else ""
 
         media = re.findall(r"background-image:url\('([^']+)'\)", block)
+
+        # Extract <video> sources (mp4 links) ? public preview videos
+        video_matches = re.findall(r'<video[^>]+src="([^"]+\.mp4[^"]*)"', block)
+        for video_url in video_matches:
+            if video_url not in media:
+                media.append(video_url)
+
+        # Extract <source> tags inside <video>
+        source_matches = re.findall(r'<source[^>]+src="([^"]+\.mp4[^"]*)"', block)
+        for video_url in source_matches:
+            if video_url not in media:
+                media.append(video_url)
 
         time_match = re.search(r'<time[^>]+datetime="([^"]+)"', block)
         published_at = datetime.fromisoformat(time_match.group(1)) if time_match else None
