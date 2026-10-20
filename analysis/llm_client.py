@@ -49,7 +49,7 @@ class LLMClient:
         self.client = OpenAI(api_key=api_key, base_url=endpoint)
         self.model = model
 
-    def complete_json(self, system_prompt: str, user_prompt: str, max_tokens: int = 2000, max_attempts: int = 3, error_feedback: str = "") -> dict:
+    def complete_json(self, system_prompt: str, user_prompt: str, max_tokens: int = 8000, max_attempts: int = 3, error_feedback: str = "") -> dict:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt if not error_feedback else user_prompt + "\n\nПредыдущий ответ был невалиден. Исправь ошибку:\n" + error_feedback},
@@ -67,3 +67,4 @@ class LLMClient:
                 return payload
             last_error = f"invalid JSON after attempt {attempt}: {content[:200]}"
         raise ValueError(last_error)
+
