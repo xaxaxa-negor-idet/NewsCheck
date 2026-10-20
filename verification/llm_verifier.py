@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """LLM Verifier: SPEC 7.4 — claims + sources to verdicts with quotes."""
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from analysis.validators import (
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = ROOT / "analysis" / "prompts"
-PROMPT_VERSION = "verifier_v1"
+PROMPT_VERSION = "verifier_v2"
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class VerificationResult:
 
 def verify_claims(client: LLMClient, claims: list[dict], sources: list[dict], max_attempts: int = 2) -> VerificationResult:
     """claims: [{id, text}]; sources: [{id, title, text, domain, published_at}]"""
-    system_prompt = (PROMPTS_DIR / "verifier_v1.md").read_text(encoding="utf-8-sig")
+    system_prompt = (PROMPTS_DIR / "verifier_v2.md").read_text(encoding="utf-8-sig")
     user_prompt = (
         "Утверждения:\n"
         + "\n".join(f"ID {claim['id']}: {claim['text']}" for claim in claims)

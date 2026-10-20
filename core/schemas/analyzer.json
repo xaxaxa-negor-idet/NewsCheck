@@ -1,4 +1,4 @@
-﻿{
+{
   "type": "object",
   "required": ["event", "claims", "entities", "search_queries", "tags", "is_news", "ambiguity"],
   "additionalProperties": false,
@@ -21,7 +21,7 @@
     "claims": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 8,
+      "maxItems": 3,
       "items": {
         "type": "object",
         "required": ["text", "is_key"],

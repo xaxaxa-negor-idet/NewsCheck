@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """LLM Analyzer: SPEC 7.2 — message to Event/Claims/Queries via LLM."""
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from analysis.validators import validate_schema
 
 ROOT = Path(__file__).resolve().parent
 PROMPTS_DIR = ROOT / "prompts"
-PROMPT_VERSION = "analyzer_v1"
+PROMPT_VERSION = "analyzer_v2"
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class AnalysisResult:
 
 
 def analyze_message(client: LLMClient, text: str) -> AnalysisResult:
-    system_prompt = (PROMPTS_DIR / "analyzer_v1.md").read_text(encoding="utf-8-sig")
+    system_prompt = (PROMPTS_DIR / "analyzer_v2.md").read_text(encoding="utf-8-sig")
     user_prompt = "Разбери сообщение:\n" + text
 
     payload = client.complete_json(system_prompt, user_prompt)

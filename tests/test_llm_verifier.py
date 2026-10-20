@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -33,4 +33,4 @@ def test_verify_claims_valid_payload():
         sources=[{"id": 10, "title": "News", "text": "Авария произошла утром", "domain": "news.com"}],
     )
     assert result.payload["claim_verdicts"][0]["status"] == "CONFIRMED"
-    assert result.prompt_version == "verifier_v1"
+    assert result.prompt_version == "verifier_v2"

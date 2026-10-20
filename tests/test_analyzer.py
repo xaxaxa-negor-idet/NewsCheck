@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -38,5 +38,5 @@ def test_analyze_message_returns_valid_payload():
     result = analyze_message(client, "В Москве произошло ДТП")
     assert result.payload["event"]["title"] == "ДТП"
     assert result.model == "test-model"
-    assert result.prompt_version == "analyzer_v1"
+    assert result.prompt_version == "analyzer_v2"
     assert "анализатор" in client.calls[0][0].lower()
