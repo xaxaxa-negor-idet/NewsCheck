@@ -49,3 +49,30 @@ Press Ctrl+C to stop
 --- cycle 8 [02:36:14] ---
   collected: 0 new messages
   nothing new, sleeping
+
+--- cycle 9 [02:36:51] ---
+  @breakingmash: retry 1
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 10 [02:37:42] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 11 [02:38:19] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 12 [02:38:56] ---
+  @nexta_live: retry 1
+  @rybar: retry 1
+  @shot_shot: +0 new, 1 edited
+  collected: 0 new messages
+  msg 177: IGNORED (event None)
+  processed: 1
+
+--- cycle 13 [02:40:09] ---
+  collected: 0 new messages
+  nothing new, sleeping
+
+--- cycle 14 [02:40:46] ---
