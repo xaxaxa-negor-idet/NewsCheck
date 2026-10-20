@@ -10,7 +10,7 @@ from database.migrate import apply_migrations
 def test_migration_creates_all_tables(tmp_path):
     db = tmp_path / "test.db"
     applied = apply_migrations(str(db))
-    assert applied == ["001_init.sql", "002_event_sources.sql"]
+    assert applied == ["001_init.sql", "002_event_sources.sql", "003_event_reason.sql"]
 
     conn = sqlite3.connect(db)
     tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
