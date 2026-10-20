@@ -9,8 +9,8 @@ def test_template_structure():
     post = EventPost(
         event_id=1,
         original_text="Original news text",
-        status="????????????",
-        reason="???????? ???????? ?????????",
+        status="ОПРОВЕРГНУТО",
+        reason="arg text",
         claims=[],
         source_links=["https://example.com/a"],
         source_channel="topor",
@@ -18,12 +18,12 @@ def test_template_structure():
         tags=[],
     )
     text = format_post(post)
-    assert "??? NewsCheck ???" in text
-    assert "???" in text
-    assert "????????:" in text
-    assert "?????????????:" in text
-    assert "????????: @topor" in text
-    assert "????:" in text
+    assert "─── NewsCheck ───" in text
+    assert "МИФ" in text
+    assert "Аргумент:" in text
+    assert "Подтверждения:" in text
+    assert "Оригинал: @topor" in text
+    assert "Пост:" in text
     assert "ID: #1" in text
     assert '<a href=' in text
 
@@ -32,7 +32,7 @@ def test_template_confirmed():
     post = EventPost(
         event_id=1,
         original_text="Text",
-        status="????????????",
+        status="ПОДТВЕРЖДЕНО",
         reason="",
         claims=[],
         source_links=["https://a.com", "https://b.com"],
@@ -41,6 +41,6 @@ def test_template_confirmed():
         tags=[],
     )
     text = format_post(post)
-    assert "?? ???" in text
-    assert "????????: @chan" in text
-    assert "????:" in text
+    assert "НЕ МИФ" in text
+    assert "Оригинал: @chan" in text
+    assert "Пост:" in text
