@@ -78,7 +78,7 @@ class NewsCheckPipeline:
             event_data = analysis["event"]
 
             # Stage 5: duplicate detection — skip if this event already exists
-            existing_event_id = find_existing_event(event_data["title"], message["original_text"], self.db_path)
+            existing_event_id = find_existing_event(event_data["title"], message["original_text"], self.db_path, message_id=message_id)
             if existing_event_id:
                 conn.execute("UPDATE messages SET processing_status='IGNORED' WHERE id=?", (message_id,))
                 conn.commit()

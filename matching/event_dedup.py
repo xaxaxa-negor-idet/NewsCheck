@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Event fingerprinting: detect duplicates by content similarity before creating a new event."""
 from __future__ import annotations
 
@@ -34,10 +34,19 @@ def compute_fingerprint(text: str) -> str:
     return sha256(normalized.encode("utf-8")).hexdigest()[:32]
 
 
-def find_existing_event(title: str, original_text: str, db_path: str | None = None) -> int | None:
-    """Return existing event id if a similar event already exists (fingerprint or title match)."""
+def find_existing_event(title: str, original_text: str, db_path: str | None = None, message_id: int | None = None) -> int | None:
+    """Return existing event id if a similar event already exists."""
     conn = _connect(db_path)
     try:
+        # 1. Same source message already has an event ? strongest signal
+        if message_id is not None:
+            row = conn.execute(
+                "SELECT em.event_id FROM event_messages em WHERE em.message_id=? LIMIT 1",
+                (message_id,),
+            ).fetchone()
+            if row:
+                return int(row["event_id"])
+
         fingerprint = compute_fingerprint(title + " " + original_text[:200])
         row = conn.execute(
             "SELECT id FROM events WHERE fingerprint=? LIMIT 1", (fingerprint,)
